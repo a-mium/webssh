@@ -1686,6 +1686,30 @@ test('account settings navigation still protects unsaved notes', async ({ page }
     await expect(page.locator('#sessionNotepad')).toHaveValue('Unsaved offline note');
 });
 
+test('mobile terminal keys send navigation to the active SSH session', async ({ page }) => {
+    await page.setViewportSize({width: 360, height: 640});
+    await login(page);
+    await seedLinuxSession(page);
+    const keys = page.getByRole('group', {name: 'Terminal navigation keys'});
+    await expect(keys).toBeHidden();
+    await page.locator('#mobileCommandToggle').click();
+    await expect(keys).toBeVisible();
+
+    for (const name of ['Up arrow', 'Down arrow', 'Enter', 'Escape']) {
+        await keys.getByRole('button', {name, exact: true}).click();
+    }
+    await page.evaluate(() => new Promise(resolve =>
+        TerminalManager.writeOutput('workspace-linux', '\x1b[?1h', null, resolve)));
+    await keys.getByRole('button', {name: 'Up arrow'}).click();
+    await keys.getByRole('button', {name: 'Down arrow'}).click();
+
+    const inputs = await page.evaluate(() => window.__workspaceEvents
+        .filter(entry => entry.event === 'ssh_input')
+        .map(entry => entry.payload));
+    expect(inputs).toEqual(['\x1b[A', '\x1b[B', '\r', '\x1b', '\x1bOA', '\x1bOB']
+        .map(data => ({session_id: 'workspace-linux', data})));
+});
+
 test('desktop-to-mobile resize is not mistaken for an open virtual keyboard', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await login(page);

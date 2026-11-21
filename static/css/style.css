@@ -1112,9 +1112,22 @@ body[data-theme="paper"] .terminal-pane {
 .mobile-input-bar {
     display: none;
     align-items: center;
+    flex-wrap: wrap;
     gap: 6px;
     flex: 1;
     min-width: 0;
+}
+
+.mobile-terminal-keys {
+    display: flex;
+    flex-basis: 100%;
+    gap: 6px;
+    justify-content: center;
+}
+
+.mobile-terminal-keys button {
+    min-width: 44px;
+    min-height: 44px;
 }
 
 .mobile-input-bar input {

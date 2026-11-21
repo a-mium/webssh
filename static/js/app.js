@@ -2699,6 +2699,17 @@
             mobileSendBtn.addEventListener('click', sendMobileInput);
         }
 
+        const mobileTerminalKeys = document.getElementById('mobileTerminalKeys');
+        mobileTerminalKeys?.addEventListener('click', event => {
+            const key = event.target.closest('button[data-terminal-key]')?.dataset.terminalKey;
+            const sessionId = SessionManager.getActiveSession();
+            const terminal = SessionManager.getActiveTerminal();
+            if (!key || !sessionId || !terminal || !SessionManager.getSession(sessionId)?.connected) return;
+
+            const cursorPrefix = terminal.modes.applicationCursorKeysMode ? '\x1bO' : '\x1b[';
+            const sequences = {up: cursorPrefix + 'A', down: cursorPrefix + 'B', enter: '\r', escape: '\x1b'};
+            window.SSHInput.send(sessionId, sequences[key]);
+        });
     }
 
     function setupSplitControls() {
