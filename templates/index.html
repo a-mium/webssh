@@ -231,8 +231,8 @@
                 <button class="btn btn-secondary mobile-input-close" id="mobileInputCloseBtn" type="button" aria-label="Hide command input" data-i18n-aria-label="terminal.hideInput">
                     <span class="material-icons" aria-hidden="true">keyboard_hide</span>
                 </button>
-                <input type="text" id="mobileInput" aria-label="Terminal input" data-i18n-aria-label="terminal.inputLabel" data-i18n-placeholder="terminal.mobileInputPlaceholder" placeholder="Type or paste here..."
-                       maxlength="4096" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                <textarea id="mobileInput" aria-label="Terminal input" data-i18n-aria-label="terminal.inputLabel" data-i18n-placeholder="terminal.mobileInputPlaceholder" placeholder="Type or paste here..."
+                          rows="1" maxlength="4096" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send"></textarea>
                 <button class="btn btn-primary mobile-send-btn" id="mobileSendBtn" type="button" aria-label="Send command" data-i18n-aria-label="terminal.sendInput">
                     <span class="material-icons" aria-hidden="true">send</span>
                 </button>

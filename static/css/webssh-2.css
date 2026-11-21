@@ -5106,7 +5106,7 @@ body[data-theme="paper"]:has(.auth-access-dock) {
         width: 100%;
     }
 
-    .mobile-input-bar input {
+    .mobile-input-bar textarea {
         min-height: 46px;
         padding: 10px 12px;
         border-radius: 9px;

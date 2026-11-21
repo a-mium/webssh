@@ -2738,12 +2738,13 @@
         let mobileSendPending = false;
         const sendMobileInput = async () => {
             const active = SessionManager.getActiveSession();
-            if (mobileSendPending || !active || !mobileInput.value) return;
+            if (mobileSendPending || !active) return;
             const submitted = mobileInput.value;
             mobileSendPending = true;
             try {
-                let sent = false;
-                if (window.socket?.connected === true) {
+                const attachment = window.TerminalComposerAttachment?.send(active, submitted);
+                let sent = attachment ? await attachment : false;
+                if (!attachment && submitted && window.socket?.connected === true) {
                     const binding = window.TerminalPasteGuard?.capture(active);
                     sent = await window.TerminalPasteGuard?.review(binding, submitted,
                         value => window.SSHInput?.sendText(active, value + '\r'));
@@ -2755,8 +2756,7 @@
         };
 
         if (mobileInput) {
-            // Input[type=text] strips line breaks. Review the original clipboard
-            // before the browser can silently turn several commands into one.
+            // Review multiline terminal pastes before they can execute commands.
             mobileInput.addEventListener('paste', event => {
                 const text = event.clipboardData?.getData('text/plain') || '';
                 if (!window.TerminalPasteGuard?.needsReview(text)) return;
@@ -2766,7 +2766,7 @@
                 window.TerminalPasteGuard.paste(binding, text);
             });
             mobileInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
                     e.preventDefault();
                     sendMobileInput();
                 }

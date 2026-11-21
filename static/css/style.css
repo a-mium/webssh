@@ -1130,7 +1130,7 @@ body[data-theme="paper"] .terminal-pane {
     min-height: 44px;
 }
 
-.mobile-input-bar input {
+.mobile-input-bar textarea {
     flex: 1;
     min-width: 0;
     padding: 8px 12px;
@@ -1140,16 +1140,17 @@ body[data-theme="paper"] .terminal-pane {
     color: var(--text-primary);
     font-size: 14px;
     font-family: var(--font-mono);
+    resize: none;
     outline: none;
     transition: border-color 0.2s;
 }
 
-.mobile-input-bar input:focus {
+.mobile-input-bar textarea:focus {
     border-color: var(--accent-primary);
     box-shadow: 0 0 0 2px var(--accent-primary-glow);
 }
 
-.mobile-input-bar input::placeholder {
+.mobile-input-bar textarea::placeholder {
     color: var(--text-muted);
 }
 
