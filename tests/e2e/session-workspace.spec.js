@@ -1710,6 +1710,55 @@ test('mobile terminal keys send navigation to the active SSH session', async ({ 
         .map(data => ({session_id: 'workspace-linux', data})));
 });
 
+test('full-screen terminal keeps navigation and copies a selection across scrolled lines', async ({page}) => {
+    await page.setViewportSize({width: 390, height: 720});
+    await login(page);
+    await seedLinuxSession(page);
+    await page.evaluate(() => new Promise(resolve => {
+        const lines = Array.from({length: 100}, (_, index) => `copy-line-${index}`);
+        TerminalManager.writeOutput('workspace-linux', lines.join('\r\n'), null, resolve);
+    }));
+
+    await page.getByRole('button', {name: 'Full screen', exact: true}).click();
+    await expect(page.locator('#mobileAppDock')).toBeHidden();
+    await expect(page.locator('#mobileCommandToggle')).toBeVisible();
+    await expect.poll(async () => (await page.locator('.main-content').boundingBox())?.height).toBe(720);
+    await page.getByRole('button', {name: 'Select text', exact: true}).click();
+    const dialog = page.getByRole('dialog', {name: 'Select terminal text'});
+    const text = dialog.locator('textarea');
+    await expect(text).toHaveValue(/copy-line-0[\s\S]*copy-line-99/);
+    const selected = await text.evaluate(element => {
+        const start = element.value.indexOf('copy-line-2\n');
+        const end = element.value.indexOf('copy-line-85\n') + 'copy-line-85'.length;
+        element.setSelectionRange(start, end);
+        element.scrollTop = element.scrollHeight;
+        return element.value.slice(start, end);
+    });
+    await dialog.getByRole('button', {name: 'Copy selection'}).click();
+    await expect(dialog.getByRole('status')).toHaveText('Copied.');
+    expect(await page.evaluate(() => window.__workspaceClipboard)).toBe(selected);
+    await dialog.getByRole('button', {name: 'Close', exact: true}).click();
+    await page.getByRole('button', {name: 'Exit full screen'}).click();
+    await expect(page.locator('#mobileAppDock')).toBeVisible();
+});
+
+test('alternate screen uses the configured terminal history when opening text selection', async ({page}) => {
+    await page.setViewportSize({width: 390, height: 720});
+    await login(page);
+    await seedLinuxSession(page);
+    await page.route('**/api/test-terminal-history', route => route.fulfill({json: {text: 'previous page\ncurrent page'}}));
+    await page.evaluate(() => new Promise(resolve => {
+        const meta = document.createElement('meta');
+        meta.name = 'terminal-history-url';
+        meta.content = '/api/test-terminal-history';
+        document.head.append(meta);
+        TerminalManager.writeOutput('workspace-linux', '\x1b[?1049hcurrent page', null, resolve);
+    }));
+    await page.getByRole('button', {name: 'Select text', exact: true}).click();
+    await expect(page.getByRole('dialog', {name: 'Select terminal text'}).locator('textarea'))
+        .toHaveValue('previous page\ncurrent page');
+});
+
 test('desktop-to-mobile resize is not mistaken for an open virtual keyboard', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await login(page);

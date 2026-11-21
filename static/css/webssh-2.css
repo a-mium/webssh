@@ -294,6 +294,90 @@ textarea {
 
 .terminal-area {
     padding: 8px 0 8px 8px;
+    display: flex;
+    flex-direction: column;
+}
+
+.terminal-view-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    padding-bottom: 6px;
+}
+
+.terminal-view-controls button {
+    min-height: 44px;
+}
+
+.terminal-area .session-main-split {
+    flex: 1;
+    height: auto;
+}
+
+body.terminal-fullscreen .main-content:not([hidden]) {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+body.terminal-fullscreen .workspace {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+body.terminal-fullscreen :is(#contextWorkspace, #contextWorkspaceBackdrop, #workspaceStatusBar, #mobileAppDock) {
+    display: none !important;
+}
+
+body.terminal-fullscreen .mobile-command-toggle {
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    z-index: 101;
+}
+
+body.terminal-fullscreen .session-bar {
+    bottom: calc(8px + env(safe-area-inset-bottom));
+}
+
+.terminal-text-dialog {
+    width: min(52rem, calc(100% - 16px));
+    max-height: calc(100dvh - 16px);
+    padding: 12px;
+    border: 1px solid var(--ws2-border-strong);
+    border-radius: 12px;
+    background: var(--ws2-surface);
+    color: var(--ws2-text);
+}
+
+.terminal-text-dialog::backdrop {
+    background: rgb(0 0 0 / 64%);
+}
+
+.terminal-text-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.terminal-text-dialog h2 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.terminal-text-dialog textarea {
+    display: block;
+    width: 100%;
+    height: min(60dvh, 32rem);
+    margin-bottom: 8px;
+    resize: none;
+    padding: 8px;
+    background: var(--term-background);
+    color: var(--term-foreground);
+    font: 16px/1.4 var(--font-mono, monospace);
+    -webkit-user-select: text;
+    user-select: text;
+    white-space: pre;
+    overscroll-behavior: contain;
 }
 
 .terminals-container,

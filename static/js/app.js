@@ -2626,6 +2626,82 @@
             .catch(() => showNotification((window.i18n ? window.i18n.t('toast.clipboardDenied') : 'Clipboard access denied'), 'error'));
     }
 
+    function setupTerminalView() {
+        const fullscreen = document.getElementById('terminalFullscreen');
+        const dialog = document.getElementById('terminalTextDialog');
+        const text = dialog.querySelector('textarea');
+        const status = dialog.querySelector('[role="status"]');
+        const selectText = document.getElementById('terminalSelectText');
+
+        fullscreen.addEventListener('click', () => {
+            const expanded = document.body.classList.toggle('terminal-fullscreen');
+            fullscreen.setAttribute('aria-pressed', String(expanded));
+            fullscreen.firstElementChild.textContent = expanded ? 'close_fullscreen' : 'open_in_full';
+            fullscreen.lastElementChild.textContent = expanded ? 'Exit full screen' : 'Full screen';
+            requestAnimationFrame(() => TerminalManager.fitAllTerminals());
+        });
+
+        selectText.addEventListener('click', async () => {
+            const terminal = SessionManager.getActiveTerminal();
+            if (!terminal) return;
+            const buffer = terminal.buffer.active;
+            const historyUrl = document.querySelector('meta[name="terminal-history-url"]')?.content;
+            if (buffer.type === 'alternate' && historyUrl) {
+                selectText.disabled = true;
+                try {
+                    const response = await fetch(historyUrl, {signal: AbortSignal.timeout(3000)});
+                    const history = response.ok ? (await response.json()).text : null;
+                    if (typeof history === 'string' && terminal === SessionManager.getActiveTerminal()) {
+                        text.value = history;
+                        status.textContent = '';
+                        dialog.showModal();
+                        text.scrollTop = text.scrollHeight;
+                        return;
+                    }
+                } catch {
+                    // The current terminal buffer is still available.
+                } finally {
+                    selectText.disabled = false;
+                }
+                if (terminal !== SessionManager.getActiveTerminal()) return;
+            }
+            const lines = [];
+            let firstVisibleLine = 0;
+            for (let row = 0; row < buffer.length; row++) {
+                const line = buffer.getLine(row);
+                const continues = buffer.getLine(row + 1)?.isWrapped;
+                if (row === buffer.viewportY) firstVisibleLine = lines.length;
+                if (line.isWrapped && lines.length) {
+                    lines[lines.length - 1] += line.translateToString(!continues);
+                } else {
+                    lines.push(line.translateToString(!continues));
+                }
+            }
+            text.value = lines.join('\n').replace(/\n+$/, '');
+            status.textContent = buffer.type === 'alternate' ? 'Showing the current terminal screen.' : '';
+            dialog.showModal();
+            text.scrollTop = firstVisibleLine * parseFloat(getComputedStyle(text).lineHeight);
+        });
+
+        document.getElementById('terminalCopyText').addEventListener('click', async () => {
+            const selection = text.value.slice(text.selectionStart, text.selectionEnd);
+            if (!selection) {
+                status.textContent = 'Select the text you want to copy.';
+                return;
+            }
+            try {
+                await TerminalManager.writeTextToClipboard(selection, dialog);
+                status.textContent = 'Copied.';
+            } catch {
+                status.textContent = 'Use Copy from the text selection menu.';
+            }
+        });
+
+        dialog.addEventListener('close', () => {
+            text.value = '';
+        });
+    }
+
     function setupClipboardActions() {
         const saveBtn = document.getElementById('saveTranscriptBtn');
 
@@ -3732,6 +3808,7 @@
         setupConnectionValidation();
         setupPasswordToggles();
         setupClipboardActions();
+        setupTerminalView();
         setupSplitControls();
         setupNotepad();
         window.AuthSessionGuard?.start?.();

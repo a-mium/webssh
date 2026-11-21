@@ -312,26 +312,26 @@ const TerminalManager = {
             : event.ctrlKey && !event.metaKey;
     },
 
-    writeTextToClipboard(text) {
+    writeTextToClipboard(text, container) {
         const clipboard = typeof navigator !== 'undefined'
             ? navigator.clipboard
             : undefined;
         if (clipboard && typeof clipboard.writeText === 'function') {
             try {
                 return Promise.resolve(clipboard.writeText(text)).catch(() => (
-                    this.writeTextToClipboardFallback(text)
+                    this.writeTextToClipboardFallback(text, container)
                 ));
             } catch {
-                return this.writeTextToClipboardFallback(text);
+                return this.writeTextToClipboardFallback(text, container);
             }
         }
-        return this.writeTextToClipboardFallback(text);
+        return this.writeTextToClipboardFallback(text, container);
     },
 
     // Hidden-textarea fallback for browser contexts where the
     // async Clipboard API is unavailable or permission is denied. Mirrors
     // the defaultWriteClipboard fallback in static/js/session-diagnostics.js.
-    writeTextToClipboardFallback(text) {
+    writeTextToClipboardFallback(text, container) {
         let textarea = null;
         const previousFocus = typeof document !== 'undefined' ? document.activeElement : null;
         return new Promise((resolve, reject) => {
@@ -344,7 +344,7 @@ const TerminalManager = {
                 textarea.setAttribute('readonly', '');
                 textarea.style.position = 'fixed';
                 textarea.style.opacity = '0';
-                document.body?.appendChild(textarea);
+                (container || document.body)?.appendChild(textarea);
                 textarea.select?.();
                 if (typeof document.execCommand !== 'function' || !document.execCommand('copy')) {
                     throw new Error('copy unavailable');
