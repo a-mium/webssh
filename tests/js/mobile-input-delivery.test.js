@@ -85,3 +85,17 @@ test('cancelled mobile review preserves the draft and sends nothing', async () =
     assert.deepEqual(delivered, []);
     assert.equal(context.mobileInput.value, 'first\nsecond');
 });
+
+test('attachment delivery accepts an empty prompt without sending a terminal command', async () => {
+    const context = setup(() => assert.fail('The text-only transport was called'));
+    context.mobileInput.value = '';
+    const delivered = [];
+    context.window.TerminalComposerAttachment = {
+        send(sessionId, prompt) {
+            delivered.push([sessionId, prompt]);
+            return Promise.resolve(true);
+        },
+    };
+    await context.send();
+    assert.deepEqual(delivered, [['s', '']]);
+});
