@@ -189,6 +189,8 @@
             }
             if (commandOpen) {
                 elements.mobileInput?.focus?.({preventScroll: true});
+            } else if (documentRef.activeElement === elements.mobileInput) {
+                elements.mobileInput?.blur?.();
             }
             scheduleTerminalFit();
             return commandOpen;
