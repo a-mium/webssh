@@ -86,8 +86,26 @@ test('cancelled mobile review preserves the draft and sends nothing', async () =
     assert.equal(context.mobileInput.value, 'first\nsecond');
 });
 
+test('the send button sends Enter on an empty prompt only to a connected terminal', async () => {
+    const context = setup(() => assert.fail('The text-only transport was called'));
+    const delivered = [];
+    context.mobileInput.value = '';
+    context.window.SSHInput.send = (id, value) => delivered.push([id, value]);
+
+    await context.send();
+    assert.deepEqual(delivered, [['s', '\r']]);
+
+    context.SessionManager.getSession('s').connected = false;
+    await context.send();
+    context.SessionManager.getSession('s').connected = true;
+    context.window.socket.connected = false;
+    await context.send();
+    assert.deepEqual(delivered, [['s', '\r']]);
+});
+
 test('attachment delivery accepts an empty prompt without sending a terminal command', async () => {
     const context = setup(() => assert.fail('The text-only transport was called'));
+    context.window.SSHInput.send = () => assert.fail('Enter was sent with the attachment');
     context.mobileInput.value = '';
     const delivered = [];
     context.window.TerminalComposerAttachment = {

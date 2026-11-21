@@ -2744,10 +2744,14 @@
             try {
                 const attachment = window.TerminalComposerAttachment?.send(active, submitted);
                 let sent = attachment ? await attachment : false;
-                if (!attachment && submitted && window.socket?.connected === true) {
-                    const binding = window.TerminalPasteGuard?.capture(active);
-                    sent = await window.TerminalPasteGuard?.review(binding, submitted,
-                        value => window.SSHInput?.sendText(active, value + '\r'));
+                if (!attachment && window.socket?.connected === true) {
+                    if (submitted) {
+                        const binding = window.TerminalPasteGuard?.capture(active);
+                        sent = await window.TerminalPasteGuard?.review(binding, submitted,
+                            value => window.SSHInput?.sendText(active, value + '\r'));
+                    } else if (SessionManager.getSession(active)?.connected) {
+                        window.SSHInput?.send(active, '\r');
+                    }
                 }
                 if (sent && mobileInput.value === submitted) mobileInput.value = '';
             } finally {
@@ -2785,7 +2789,7 @@
             if (!key || !sessionId || !terminal || !SessionManager.getSession(sessionId)?.connected) return;
 
             const cursorPrefix = terminal.modes.applicationCursorKeysMode ? '\x1bO' : '\x1b[';
-            const sequences = {up: cursorPrefix + 'A', down: cursorPrefix + 'B', enter: '\r', escape: '\x1b'};
+            const sequences = {up: cursorPrefix + 'A', down: cursorPrefix + 'B', escape: '\x1b'};
             window.SSHInput.send(sessionId, sequences[key]);
         });
     }
