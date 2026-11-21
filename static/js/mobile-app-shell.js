@@ -188,7 +188,7 @@
                 elements.commandToggle.dataset.i18nAriaLabel = key;
             }
             if (commandOpen) {
-                windowRef.requestAnimationFrame?.(() => elements.mobileInput?.focus?.());
+                elements.mobileInput?.focus?.({preventScroll: true});
             }
             scheduleTerminalFit();
             return commandOpen;

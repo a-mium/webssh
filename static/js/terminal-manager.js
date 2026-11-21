@@ -1566,12 +1566,25 @@ window.addEventListener('orientationchange', () => {
 });
 
 if (window.visualViewport) {
+    const viewport = window.visualViewport;
     let keyboardVisible = false;
 
-    window.visualViewport.addEventListener('resize', () => {
-        const currentHeight = window.visualViewport.height;
+    const syncViewport = () => {
+        const style = document.documentElement.style;
+        if (viewport.scale === 1) {
+            style.setProperty('--terminal-viewport-height', `${viewport.height}px`);
+            style.setProperty('--terminal-viewport-top', `${viewport.offsetTop}px`);
+        } else {
+            style.removeProperty('--terminal-viewport-height');
+            style.removeProperty('--terminal-viewport-top');
+        }
+    };
+    syncViewport();
+    viewport.addEventListener('scroll', syncViewport);
+    viewport.addEventListener('resize', () => {
+        syncViewport();
         const newKeyboardVisible = TerminalManager.isVirtualKeyboardVisible(
-            currentHeight,
+            viewport.height,
             window.innerHeight,
         );
 

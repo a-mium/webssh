@@ -267,6 +267,9 @@
                     <button class="btn btn-secondary" id="terminalFullscreen" type="button" aria-pressed="false">
                         <span class="material-icons" aria-hidden="true">open_in_full</span><span>Full screen</span>
                     </button>
+                    <button id="mobileCommandToggle" class="mobile-command-toggle" type="button" aria-expanded="false" aria-controls="mobileInputBar" aria-label="Show command input" data-i18n-aria-label="terminal.showInput" disabled>
+                        <span class="material-icons" aria-hidden="true">keyboard</span>
+                    </button>
                 </div>
                 <div class="session-main-split" id="sessionMainSplit">
                     <div class="terminals-container" id="terminalsContainer">
@@ -383,16 +386,13 @@
             <form method="dialog"><button class="btn btn-secondary" type="submit" autofocus>Close</button></form>
         </div>
         <p id="terminalTextHint">Scroll through the text and use touch handles to extend the selection.</p>
-        <textarea readonly wrap="off" aria-labelledby="terminalTextTitle" aria-describedby="terminalTextHint" spellcheck="false"></textarea>
+        <textarea readonly aria-labelledby="terminalTextTitle" aria-describedby="terminalTextHint" spellcheck="false"></textarea>
         <div class="terminal-text-actions">
             <span role="status"></span>
             <button class="btn btn-primary" id="terminalCopyText" type="button">Copy selection</button>
         </div>
     </dialog>
     <button id="mobileMenuBackdrop" class="mobile-menu-backdrop" type="button" tabindex="-1" aria-hidden="true" hidden></button>
-    <button id="mobileCommandToggle" class="mobile-command-toggle" type="button" aria-expanded="false" aria-controls="mobileInputBar" aria-label="Show command input" data-i18n-aria-label="terminal.showInput" disabled>
-        <span class="material-icons" aria-hidden="true">keyboard</span>
-    </button>
     <nav class="mobile-app-dock" id="mobileAppDock" aria-label="Mobile navigation" data-i18n-aria-label="navigation.mobile">
         <button class="mobile-dock-item" type="button" data-mobile-view="workspaces"><span class="material-icons" aria-hidden="true">terminal</span><span data-i18n="navigation.terminal">Terminal</span></button>
         <button class="mobile-dock-item" type="button" data-mobile-view="files"><span class="material-icons" aria-hidden="true">folder_open</span><span data-i18n="workspaceContext.files">Files</span></button>

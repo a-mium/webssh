@@ -2680,7 +2680,9 @@
             text.value = lines.join('\n').replace(/\n+$/, '');
             status.textContent = buffer.type === 'alternate' ? 'Showing the current terminal screen.' : '';
             dialog.showModal();
-            text.scrollTop = firstVisibleLine * parseFloat(getComputedStyle(text).lineHeight);
+            text.scrollTop = buffer.viewportY === buffer.baseY
+                ? text.scrollHeight
+                : firstVisibleLine * parseFloat(getComputedStyle(text).lineHeight);
         });
 
         document.getElementById('terminalCopyText').addEventListener('click', async () => {

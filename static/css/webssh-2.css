@@ -300,6 +300,7 @@ textarea {
 
 .terminal-view-controls {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
     gap: 6px;
     padding-bottom: 6px;
@@ -316,36 +317,42 @@ textarea {
 
 body.terminal-fullscreen .main-content:not([hidden]) {
     position: fixed;
-    inset: 0;
+    inset: var(--terminal-viewport-top, 0px) 0 auto;
+    height: var(--terminal-viewport-height, 100dvh);
     z-index: 100;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 body.terminal-fullscreen .workspace {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) !important;
 }
 
 body.terminal-fullscreen :is(#contextWorkspace, #contextWorkspaceBackdrop, #workspaceStatusBar, #mobileAppDock) {
     display: none !important;
 }
 
-body.terminal-fullscreen .mobile-command-toggle {
-    bottom: calc(8px + env(safe-area-inset-bottom));
-    z-index: 101;
-}
-
-body.terminal-fullscreen .session-bar {
-    bottom: calc(8px + env(safe-area-inset-bottom));
-}
-
 .terminal-text-dialog {
-    width: min(52rem, calc(100% - 16px));
-    max-height: calc(100dvh - 16px);
+    --dialog-top: max(8px, env(safe-area-inset-top));
+    --dialog-bottom: max(8px, env(safe-area-inset-bottom));
+    position: fixed;
+    inset: calc(var(--terminal-viewport-top, 0px) + var(--dialog-top))
+        max(8px, env(safe-area-inset-right)) auto max(8px, env(safe-area-inset-left));
+    width: auto;
+    max-width: 52rem;
+    max-height: calc(var(--terminal-viewport-height, 100dvh) - var(--dialog-top) - var(--dialog-bottom));
+    margin: 0 auto;
+    box-sizing: border-box;
     padding: 12px;
     border: 1px solid var(--ws2-border-strong);
     border-radius: 12px;
     background: var(--ws2-surface);
     color: var(--ws2-text);
+}
+
+.terminal-text-dialog[open] {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .terminal-text-dialog::backdrop {
@@ -357,6 +364,7 @@ body.terminal-fullscreen .session-bar {
     justify-content: space-between;
     align-items: center;
     gap: 8px;
+    flex: 0 0 auto;
 }
 
 .terminal-text-dialog h2 {
@@ -367,7 +375,8 @@ body.terminal-fullscreen .session-bar {
 .terminal-text-dialog textarea {
     display: block;
     width: 100%;
-    height: min(60dvh, 32rem);
+    flex: 1 1 32rem;
+    min-height: 0;
     margin-bottom: 8px;
     resize: none;
     padding: 8px;
@@ -376,7 +385,8 @@ body.terminal-fullscreen .session-bar {
     font: 16px/1.4 var(--font-mono, monospace);
     -webkit-user-select: text;
     user-select: text;
-    white-space: pre;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
     overscroll-behavior: contain;
 }
 
@@ -5067,12 +5077,17 @@ body[data-theme="paper"]:has(.auth-access-dock) {
         background: var(--term-background);
     }
 
-    .session-bar {
+    body:is(.mobile-command-open, .keyboard-open:not(.notepad-focused)):not(.terminal-fullscreen)[data-primary-workspace="workspaces"] {
         position: fixed;
-        right: 8px;
-        bottom: calc(108px + max(8px, env(safe-area-inset-bottom)));
-        left: 8px;
-        z-index: 88;
+        inset: var(--terminal-viewport-top, 0px) 0 auto;
+        height: var(--terminal-viewport-height, 100dvh);
+        min-height: 0;
+    }
+
+    .session-bar {
+        order: 1;
+        flex: 0 0 auto;
+        margin: 0 6px 6px;
         display: none !important;
         min-width: 0;
         padding: 7px;
@@ -5325,13 +5340,9 @@ body[data-theme="paper"]:has(.auth-access-dock) {
     }
 
     .mobile-command-toggle {
-        position: fixed;
-        right: 14px;
-        bottom: calc(108px + max(8px, env(safe-area-inset-bottom)));
-        z-index: 84;
         display: inline-grid;
-        width: 52px;
-        height: 52px;
+        width: 44px;
+        height: 44px;
         padding: 0;
         place-items: center;
         border: 1px solid color-mix(in srgb, var(--ws2-accent) 72%, white 8%);
@@ -5343,7 +5354,7 @@ body[data-theme="paper"]:has(.auth-access-dock) {
     }
 
     .mobile-command-toggle:disabled,
-    body:has(#contextFilesTab[aria-selected="true"]) .mobile-command-toggle,
+    body:not(.terminal-fullscreen):has(#contextFilesTab[aria-selected="true"]) .mobile-command-toggle,
     body:not([data-primary-workspace="workspaces"]) .mobile-command-toggle {
         display: none;
     }
@@ -5439,14 +5450,10 @@ body[data-theme="paper"]:has(.auth-access-dock) {
     }
 
     body.keyboard-open .mobile-app-dock,
-    body.keyboard-open .workspace-status-bar,
-    body.keyboard-open .mobile-command-toggle {
+    body.keyboard-open .workspace-status-bar {
         display: none;
     }
 
-    body.keyboard-open .session-bar {
-        bottom: max(6px, env(safe-area-inset-bottom));
-    }
 }
 
 @media (max-width: 767px) and (orientation: landscape),
@@ -5497,14 +5504,6 @@ body[data-theme="paper"]:has(.auth-access-dock) {
 
     .mobile-dock-item .material-icons {
         font-size: 19px;
-    }
-
-    .mobile-command-toggle {
-        bottom: calc(82px + max(6px, env(safe-area-inset-bottom)));
-    }
-
-    .session-bar {
-        bottom: calc(82px + max(6px, env(safe-area-inset-bottom)));
     }
 
     .header-buttons,

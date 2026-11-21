@@ -1759,6 +1759,43 @@ test('alternate screen uses the configured terminal history when opening text se
         .toHaveValue('previous page\ncurrent page');
 });
 
+test('mobile terminal, input and selection dialog fit the visible viewport', async ({page}) => {
+    await page.setViewportSize({width: 390, height: 720});
+    await login(page);
+    await seedLinuxSession(page);
+    const terminal = page.locator('#terminalsContainer');
+    const input = page.locator('#sessionBar');
+    const expectNoOverlap = async () => {
+        await expect.poll(async () => {
+            const screen = await terminal.boundingBox();
+            const composer = await input.boundingBox();
+            return screen && composer && screen.height > 0 && screen.y + screen.height <= composer.y;
+        }).toBe(true);
+    };
+    await page.locator('#mobileCommandToggle').click();
+    await expectNoOverlap();
+    await page.locator('#terminalFullscreen').click();
+    await expectNoOverlap();
+
+    await page.evaluate(() => {
+        Object.defineProperties(visualViewport, {
+            height: {value: 350},
+            offsetTop: {value: 46},
+        });
+        visualViewport.dispatchEvent(new Event('resize'));
+    });
+    await expectNoOverlap();
+    const composer = await input.boundingBox();
+    expect(composer.y + composer.height).toBeLessThanOrEqual(396);
+    await page.locator('#terminalSelectText').click();
+
+    const dialog = page.getByRole('dialog', {name: 'Select terminal text'});
+    const close = await dialog.getByRole('button', {name: 'Close', exact: true}).boundingBox();
+    const copy = await dialog.getByRole('button', {name: 'Copy selection'}).boundingBox();
+    expect(close.y).toBeGreaterThan(46);
+    expect(copy.y + copy.height).toBeLessThanOrEqual(396);
+});
+
 test('desktop-to-mobile resize is not mistaken for an open virtual keyboard', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await login(page);
