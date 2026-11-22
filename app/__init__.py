@@ -1127,6 +1127,7 @@ def create_app(
     def login():
         if current_user.is_authenticated:
             return redirect(url_for('index'))
+        template = 'mcp-login.html' if os.getenv('MCP_SIMPLE_LOGIN') == '1' else 'login.html'
         if (
             request.method == 'GET'
             and is_bootstrap_registration_available()
@@ -1141,7 +1142,7 @@ def create_app(
             ):
                 log_rate_limit_exceeded('login', client_ip)
                 flash('Too many login attempts. Please try again later.', 'error')
-                return render_template('login.html', auth_source='local')
+                return render_template(template, auth_source='local')
 
             username = request.form.get('username')
             password = request.form.get('password')
@@ -1184,7 +1185,7 @@ def create_app(
                 log_login_attempt(username, False, client_ip, request.user_agent.string)
                 flash(error, 'error')
         return render_template(
-            'login.html',
+            template,
             auth_source='local' if request.method == 'POST' else None,
         )
 

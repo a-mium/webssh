@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Access your Remove AI workspace</title>
+    <link rel="stylesheet" href="{{ static_asset_url(filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ static_asset_url(filename='css/auth.css') }}">
+</head>
+<body class="webssh-ui webssh-auth" data-theme="glass">
+    <main class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1>Access your Remove AI workspace</h1>
+            </div>
+            {% for category, message in get_flashed_messages(with_categories=true) %}
+                {% if message != 'Please log in to access this page.' %}
+                    <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
+                {% endif %}
+            {% endfor %}
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input class="form-control" id="username" name="username" type="text"
+                           autocomplete="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input class="form-control" id="password" name="password" type="password"
+                           autocomplete="current-password" required>
+                </div>
+                <button class="btn-primary" type="submit">Sign in</button>
+            </form>
+        </div>
+    </main>
+</body>
+</html>
