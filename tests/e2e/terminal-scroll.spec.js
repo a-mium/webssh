@@ -52,21 +52,40 @@ test('ordinary shell wheel still scrolls local history without remote input', as
     expect(await page.evaluate(() => window.__scrollInputs)).toEqual([]);
 });
 
-test.describe('touch tmux scrolling', () => {
+async function swipeTerminal(page) {
+    return page.locator('.terminal-pane.active .xterm-screen').evaluate(screen => {
+        const rect = screen.getBoundingClientRect();
+        const options = {
+            bubbles: true, cancelable: true, pointerType: 'touch', pointerId: 41,
+            clientX: rect.x + rect.width / 2,
+        };
+        const surface = screen.closest('.xterm');
+        for (const [type, offset] of [['pointerdown', 60], ['pointermove', 180], ['pointerup', 180]]) {
+            surface.dispatchEvent(new PointerEvent(type, {...options, clientY: rect.y + offset}));
+        }
+        return TerminalManager.terminals[TerminalManager.sessionTerminals['scroll-regression'][0]]
+            .buffer.active.viewportY;
+    });
+}
+
+test.describe('touch terminal scrolling', () => {
     test.use({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true});
-    test('swipe is forwarded as tmux wheel input', async ({page}) => {
+    test('quick swipe scrolls local history after release', async ({page}) => {
+        await terminalFor(page, false);
+        const atRelease = await swipeTerminal(page);
+        expect(atRelease).toBeGreaterThan(10);
+        await expect.poll(() => page.evaluate(() => (
+            TerminalManager.terminals[TerminalManager.sessionTerminals['scroll-regression'][0]]
+                .buffer.active.viewportY
+        ))).toBeLessThan(atRelease - 10);
+        expect(await page.evaluate(() => window.__scrollInputs)).toEqual([]);
+    });
+
+    test('quick swipe coasts via tmux mouse wheel input', async ({page}) => {
         await terminalFor(page, true);
-        await page.locator('.terminal-pane.active .xterm-screen').evaluate(screen => {
-            const rect = screen.getBoundingClientRect();
-            const options = {
-                bubbles: true, cancelable: true, pointerType: 'touch', pointerId: 41,
-                clientX: rect.x + rect.width / 2,
-            };
-            const surface = screen.closest('.xterm');
-            for (const [type, offset] of [['pointerdown', 60], ['pointermove', 180], ['pointerup', 180]]) {
-                surface.dispatchEvent(new PointerEvent(type, {...options, clientY: rect.y + offset}));
-            }
-        });
-        await expect.poll(() => page.evaluate(() => window.__scrollInputs.join(''))).toMatch(/\x1b\[<64;/);
+        await swipeTerminal(page);
+        await expect.poll(() => page.evaluate(() => window.__scrollInputs.filter(
+            data => data.startsWith('\x1b[<64;'),
+        ).length)).toBeGreaterThan(1);
     });
 });

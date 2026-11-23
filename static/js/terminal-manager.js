@@ -1145,7 +1145,7 @@ const TerminalManager = {
         }, 120);
     },
 
-    setupTouchScroll(container, terminal) {
+    setupTouchScroll(container, terminal, terminalKey) {
         const surface = terminal.element || container.querySelector?.('.xterm') || container;
         if (!surface?.addEventListener) return () => {};
 
@@ -1154,12 +1154,12 @@ const TerminalManager = {
         let lastY = 0;
         let verticalGesture = false;
         let scrollRemainder = 0;
+        let lastMoveTime = 0;
+        let velocity = 0;
+        let momentumFrame = null;
 
-        const shouldForwardWheel = () => {
-            const mouseTrackingMode = terminal.modes?.mouseTrackingMode || 'none';
-            const activeBufferType = terminal.buffer?.active?.type || 'normal';
-            return mouseTrackingMode !== 'none' || activeBufferType === 'alternate';
-        };
+        const tracksMouse = () => (terminal.modes?.mouseTrackingMode || 'none') !== 'none';
+        const usesAlternateBuffer = () => terminal.buffer?.active?.type === 'alternate';
 
         const getLineHeight = () => {
             const renderedHeight = Number(
@@ -1174,23 +1174,57 @@ const TerminalManager = {
                 : 16;
         };
 
+        const scroll = (deltaY, clientX, clientY) => {
+            if (tracksMouse() || usesAlternateBuffer()) {
+                // Preserve coordinates for applications that receive terminal mouse input.
+                const WheelConstructor = window.WheelEvent || globalThis.WheelEvent;
+                if (typeof WheelConstructor !== 'function') return false;
+                surface.dispatchEvent(new WheelConstructor('wheel', {
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true,
+                    deltaMode: 0,
+                    deltaY,
+                    clientX,
+                    clientY,
+                }));
+                return true;
+            }
+            scrollRemainder += deltaY;
+            const lineHeight = getLineHeight();
+            const lines = Math.trunc(scrollRemainder / lineHeight);
+            if (!lines) return true;
+            scrollRemainder -= lines * lineHeight;
+            const {viewportY, baseY} = terminal.buffer.active;
+            if (lines < 0 ? viewportY === 0 : viewportY >= baseY) return false;
+            terminal.scrollLines(lines);
+            return true;
+        };
+
+        const stopMomentum = () => {
+            if (momentumFrame !== null) cancelAnimationFrame(momentumFrame);
+            momentumFrame = null;
+        };
+
         const reset = event => {
             if (pointerId === null || (
                 event?.pointerId !== undefined && event.pointerId !== pointerId
             )) return;
-            surface.releasePointerCapture?.(pointerId);
+            if (surface.hasPointerCapture?.(pointerId)) surface.releasePointerCapture(pointerId);
             pointerId = null;
             verticalGesture = false;
             scrollRemainder = 0;
         };
 
         const pointerDown = event => {
-            if (event.pointerType !== 'touch') return;
+            if (event.pointerType !== 'touch' || pointerId !== null) return;
             pointerId = event.pointerId;
             lastX = event.clientX;
             lastY = event.clientY;
             verticalGesture = false;
             scrollRemainder = 0;
+            lastMoveTime = performance.now();
+            velocity = 0;
             try {
                 surface.setPointerCapture?.(pointerId);
             } catch {
@@ -1209,47 +1243,49 @@ const TerminalManager = {
                 verticalGesture = true;
             }
 
-            if (shouldForwardWheel()) {
-                // Full-screen applications consume wheel input themselves. Keep the
-                // pointer coordinates so tmux/Vim mouse tracking receives the gesture.
-                const WheelConstructor = window.WheelEvent || globalThis.WheelEvent;
-                if (typeof WheelConstructor !== 'function') return;
-                const wheelEvent = new WheelConstructor('wheel', {
-                    bubbles: true,
-                    cancelable: true,
-                    composed: true,
-                    deltaMode: 0,
-                    deltaX: 0,
-                    deltaY,
-                    clientX: event.clientX,
-                    clientY: event.clientY,
-                });
-                surface.dispatchEvent(wheelEvent);
-            } else {
-                // Synthetic wheel events do not perform the browser's native scroll
-                // default action, so normal xterm scrollback must move explicitly.
-                scrollRemainder += deltaY;
-                const lineHeight = getLineHeight();
-                const lines = scrollRemainder < 0
-                    ? Math.ceil(scrollRemainder / lineHeight)
-                    : Math.floor(scrollRemainder / lineHeight);
-                if (lines !== 0) {
-                    terminal.scrollLines(lines);
-                    scrollRemainder -= lines * lineHeight;
-                }
-            }
+            const now = performance.now();
+            velocity = Math.max(-7, Math.min(7, deltaY / Math.max(8, now - lastMoveTime)));
+            lastMoveTime = now;
+            scroll(deltaY, lastX, lastY);
             event.preventDefault?.();
         };
 
+        const pointerUp = event => {
+            if (pointerId === null || event.pointerId !== pointerId) return;
+            const releasedAt = performance.now();
+            const mouse = tracksMouse();
+            const alternate = usesAlternateBuffer();
+            const coast = verticalGesture && Math.abs(velocity) >= 0.4
+                && releasedAt - lastMoveTime < 90 && (!alternate || mouse);
+            reset(event);
+            if (!coast) return;
+
+            let lastFrameTime = releasedAt;
+            const advance = now => {
+                momentumFrame = null;
+                if (!this.isTerminalKeyVisible(terminalKey) || mouse !== tracksMouse()
+                    || alternate !== usesAlternateBuffer() || now - releasedAt > 700) return;
+                const elapsed = Math.max(0, Math.min(32, now - lastFrameTime));
+                lastFrameTime = now;
+                velocity *= Math.exp(-elapsed / 180);
+                if (Math.abs(velocity) < 0.08 || !scroll(velocity * elapsed, lastX, lastY)) return;
+                momentumFrame = requestAnimationFrame(advance);
+            };
+            momentumFrame = requestAnimationFrame(advance);
+        };
+
+        container.addEventListener('pointerdown', stopMomentum, true);
         surface.addEventListener('pointerdown', pointerDown);
         surface.addEventListener('pointermove', pointerMove, {passive: false});
-        surface.addEventListener('pointerup', reset);
+        surface.addEventListener('pointerup', pointerUp);
         surface.addEventListener('pointercancel', reset);
 
         return () => {
+            stopMomentum();
+            container.removeEventListener('pointerdown', stopMomentum, true);
             surface.removeEventListener('pointerdown', pointerDown);
             surface.removeEventListener('pointermove', pointerMove, {passive: false});
-            surface.removeEventListener('pointerup', reset);
+            surface.removeEventListener('pointerup', pointerUp);
             surface.removeEventListener('pointercancel', reset);
         };
     },
@@ -1370,7 +1406,7 @@ const TerminalManager = {
         thumb.addEventListener('pointercancel', pointerUp);
         scrollbar.addEventListener('pointerdown', trackPointerDown);
 
-        const disposeTouchScroll = this.setupTouchScroll(container, terminal);
+        const disposeTouchScroll = this.setupTouchScroll(container, terminal, terminalKey);
         const dispose = () => {
             clearInterval(intervalId);
             scrollDisposable?.dispose?.();
