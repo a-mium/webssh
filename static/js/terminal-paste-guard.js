@@ -94,11 +94,18 @@
             element.textContent = t(key);
         }
         const trim = byId('terminalPasteTrim');
+        const trailingTrim = trimTrailingNewlines(text);
+        const hasTrailingNewlines = trailingTrim !== text;
+        const trimmedText = hasTrailingNewlines ? trailingTrim : text.replaceAll('\r', '').replaceAll('\n', '');
+        const trimLabel = byId('terminalPasteTrimLabel');
+        const trimKey = hasTrailingNewlines ? 'trim' : 'removeLineBreaks';
+        trimLabel.dataset.i18n = `terminalSafety.${trimKey}`;
+        trimLabel.textContent = t(trimKey, hasTrailingNewlines ? 'Remove trailing line breaks' : 'Remove line breaks');
         trim.checked = false;
-        trim.disabled = trimTrailingNewlines(text) === text;
+        trim.disabled = trimmedText === text;
         byId('terminalPastePreview').textContent = visibleText(text);
         return new Promise(resolve => {
-            pending = {isCurrent, changedMessage: options.changedMessage, text, send, resolve};
+            pending = {isCurrent, changedMessage: options.changedMessage, text, trimmedText, send, resolve};
             dialog.showModal();
             byId('terminalPasteCancel').focus();
         });
@@ -130,13 +137,13 @@
         dialog?.addEventListener('close', () => { if (!dialog.open && pending) cancel(); });
         byId('terminalPasteCancel')?.addEventListener('click', () => cancel());
         byId('terminalPasteTrim')?.addEventListener('change', event => {
-            if (pending) byId('terminalPastePreview').textContent = visibleText(event.target.checked ? trimTrailingNewlines(pending.text) : pending.text);
+            if (pending) byId('terminalPastePreview').textContent = visibleText(event.target.checked ? pending.trimmedText : pending.text);
         });
         byId('terminalPasteConfirm')?.addEventListener('click', async () => {
             const request = pending;
             if (!request) return;
             if (!request.isCurrent()) { cancel(true); return; }
-            const text = byId('terminalPasteTrim').checked ? trimTrailingNewlines(request.text) : request.text;
+            const text = byId('terminalPasteTrim').checked ? request.trimmedText : request.text;
             pending = null;
             dialog.close();
             byId('terminalPastePreview').textContent = '';

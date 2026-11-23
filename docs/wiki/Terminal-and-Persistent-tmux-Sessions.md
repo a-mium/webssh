@@ -133,8 +133,8 @@ retrying.
 Pasting a safe single line into a terminal remains immediate. Text containing
 line breaks or control characters opens a preview showing the exact destination
 and visible markers such as `[LF]`, `[CR]`, `[TAB]` and `[ESC]`. You can remove
-trailing line breaks before confirming. This is an input review, not a judgment
-that the command is safe.
+trailing line breaks before confirming. When the line breaks are only inside the
+text, the checkbox joins the lines. Review the updated preview before confirming.
 
 The review covers browser and context-menu paste, the command palette's
 **Paste Clipboard** action, and the mobile command input. Pasting such text into

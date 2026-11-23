@@ -19,6 +19,7 @@
             "terminalSafety.pasteTitle": "Review terminal paste",
             "terminalSafety.pasteWarning": "This text contains line breaks or control characters. Pasting can execute commands or change terminal behavior. Review the full text before sending.",
             "terminalSafety.trim": "Remove trailing line breaks",
+            "terminalSafety.removeLineBreaks": "Remove line breaks",
             "terminalSafety.pasteConfirm": "Paste to this terminal",
             "terminalSafety.changed": "Session changed. Nothing was pasted; try again in the intended session."
         },
@@ -40,6 +41,7 @@
             "terminalSafety.pasteTitle": "Terminal-Eingabe prüfen",
             "terminalSafety.pasteWarning": "Dieser Text enthält Zeilenumbrüche oder Steuerzeichen. Einfügen kann Befehle ausführen oder das Terminalverhalten ändern. Vor dem Senden den vollständigen Text prüfen.",
             "terminalSafety.trim": "Abschließende Zeilenumbrüche entfernen",
+            "terminalSafety.removeLineBreaks": "Zeilenumbrüche entfernen",
             "terminalSafety.pasteConfirm": "In dieses Terminal einfügen",
             "terminalSafety.changed": "Sitzung geändert. Es wurde nichts eingefügt. Im gewünschten Terminal erneut versuchen."
         },
@@ -61,6 +63,7 @@
             "terminalSafety.pasteTitle": "Vérifier le texte à coller",
             "terminalSafety.pasteWarning": "Ce texte contient des sauts de ligne ou des caractères de contrôle. Le coller peut exécuter des commandes ou modifier le terminal. Vérifiez tout le texte avant l’envoi.",
             "terminalSafety.trim": "Supprimer les sauts de ligne finaux",
+            "terminalSafety.removeLineBreaks": "Supprimer les sauts de ligne",
             "terminalSafety.pasteConfirm": "Coller dans ce terminal",
             "terminalSafety.changed": "La session a changé. Rien n’a été collé ; réessayez dans la session souhaitée."
         },
@@ -82,6 +85,7 @@
             "terminalSafety.pasteTitle": "Revisar texto para el terminal",
             "terminalSafety.pasteWarning": "Este texto contiene saltos de línea o caracteres de control. Pegarlo puede ejecutar comandos o alterar el terminal. Revise el texto completo antes de enviar.",
             "terminalSafety.trim": "Eliminar saltos de línea finales",
+            "terminalSafety.removeLineBreaks": "Eliminar saltos de línea",
             "terminalSafety.pasteConfirm": "Pegar en este terminal",
             "terminalSafety.changed": "La sesión ha cambiado. No se pegó nada; inténtelo en la sesión deseada."
         },
@@ -103,6 +107,7 @@
             "terminalSafety.pasteTitle": "Kiểm tra nội dung dán",
             "terminalSafety.pasteWarning": "Văn bản có xuống dòng hoặc ký tự điều khiển. Dán có thể chạy lệnh hoặc thay đổi hoạt động của terminal. Kiểm tra toàn bộ văn bản trước khi gửi.",
             "terminalSafety.trim": "Bỏ các dòng mới ở cuối",
+            "terminalSafety.removeLineBreaks": "Xóa dấu xuống dòng",
             "terminalSafety.pasteConfirm": "Dán vào terminal này",
             "terminalSafety.changed": "Phiên đã thay đổi. Chưa dán nội dung; hãy thử lại trong phiên mong muốn."
         },
@@ -124,6 +129,7 @@
             "terminalSafety.pasteTitle": "检查终端粘贴内容",
             "terminalSafety.pasteWarning": "此文本包含换行或控制字符。粘贴可能执行命令或改变终端行为。发送前请检查完整文本。",
             "terminalSafety.trim": "删除末尾换行",
+            "terminalSafety.removeLineBreaks": "删除换行",
             "terminalSafety.pasteConfirm": "粘贴到此终端",
             "terminalSafety.changed": "会话已更改。没有粘贴任何内容；请在目标会话中重试。"
         }

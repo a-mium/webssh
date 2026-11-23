@@ -137,6 +137,25 @@ test('mobile command-field paste previews original line breaks before browser sa
     expect((await inputs(page)).map(item => item.data)).toEqual(['one\rtwo']);
 });
 
+test('mobile paste can join a URL split by an embedded line break', async ({page}) => {
+    await page.setViewportSize({width: 390, height: 844});
+    await setup(page);
+    await page.locator('#mobileCommandToggle').click();
+    const url = 'https://gitlab.com/group/project/-/pipelines/123';
+    await nativePaste(page, url.replace('/123', '\n/123'), '#mobileInput');
+
+    const dialog = page.locator('#terminalPasteDialog');
+    const preview = dialog.locator('#terminalPastePreview');
+    const removeLineBreaks = dialog.getByRole('checkbox', {name: 'Remove line breaks', exact: true});
+    await expect(preview).toContainText('[LF]');
+    await removeLineBreaks.check();
+    await expect(preview).toHaveText(url);
+    expect(await inputs(page)).toEqual([]);
+
+    await dialog.getByRole('button', {name: 'Paste to this terminal'}).click();
+    expect((await inputs(page)).map(item => item.data)).toEqual([url]);
+});
+
 for (const viewport of [{width:1440, height:960}, {width:390, height:844}]) {
     test(`terminal safety fits ${viewport.width}px with identical recipient endpoints`, async ({page}) => {
         await page.setViewportSize(viewport);
