@@ -3,12 +3,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const {createSubmit} = require('../../static/js/terminal-composer.js');
 
 function setup(send, connected = true) {
-    const source = fs.readFileSync(path.join(__dirname, '../../static/js/app.js'), 'utf8');
-    const declaration = source.indexOf('let mobileSendPending =');
-    const start = declaration < 0 ? source.indexOf('const sendMobileInput =') : declaration;
-    const end = source.indexOf('\n        if (mobileInput)', start);
     const session = {id: 's', host: 'alpha.example', username: 'ops', connected};
     const elements = new Map();
     const context = {mobileInput: {value: 'original'}, SessionManager: {
@@ -24,7 +21,14 @@ function setup(send, connected = true) {
             }
         }};
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../static/js/terminal-paste-guard.js'), 'utf8'), context);
-    vm.runInNewContext(source.slice(start, end) + '\nglobalThis.send = sendMobileInput;', context);
+    context.send = createSubmit({
+        input: context.mobileInput,
+        sessions: context.SessionManager,
+        connected: () => context.window.socket.connected,
+        sendAttachment: (...args) => context.window.TerminalComposerAttachment?.send(...args),
+        pasteGuard: context.window.TerminalPasteGuard,
+        transport: context.window.SSHInput,
+    });
     return context;
 }
 

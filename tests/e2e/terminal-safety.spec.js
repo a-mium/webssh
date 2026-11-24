@@ -1,5 +1,5 @@
 const {test, expect} = require('playwright/test');
-const {login} = require('./helpers');
+const {login, openWorkspace} = require('./helpers');
 
 async function setup(page) {
     await login(page);
@@ -32,6 +32,33 @@ async function nativePaste(page, text, selector = '#terminal-safe-one .xterm-hel
     }, text);
 }
 async function inputs(page) { return page.evaluate(() => window.__terminalInputs); }
+
+async function restoredComposer(page, {interruptInput = false} = {}) {
+    await page.setViewportSize({width: 393, height: 820});
+    await login(page);
+    const seeded = await page.evaluate(interruptInput => new Promise(resolve => {
+        window.socket.emit('e2e_workspace_restore', {count: 1, interrupt_input: interruptInput}, resolve);
+    }), interruptInput);
+    expect(seeded.ok).toBe(true);
+    const [id] = seeded.session_ids;
+    await page.reload();
+    await openWorkspace(page);
+    await expect(page.locator(`#terminal-${id}`)).toBeVisible();
+    await page.locator('#mobileCommandToggle').click();
+    await page.evaluate(id => {
+        window.__terminalInputs = [];
+        window.socket.onAnyOutgoing((event, payload) => {
+            if (event === 'ssh_input' && payload.session_id === id) window.__terminalInputs.push(payload);
+        });
+    }, id);
+    return id;
+}
+
+async function clearRestoredComposer(page) {
+    await page.evaluate(() => new Promise(resolve => {
+        window.socket.emit('e2e_workspace_restore', {count: 0}, resolve);
+    }));
+}
 
 test('native terminal paste previews unsafe text and cancellation sends nothing', async ({page}) => {
     await setup(page);
@@ -80,34 +107,48 @@ test('composer Ctrl+Enter edits the draft and Enter submits after the paste', as
 });
 
 test('a stale terminal stops sending and shows one reconnect notice without losing the draft', async ({page}) => {
-    await page.setViewportSize({width: 393, height: 820});
-    await setup(page);
-    await page.locator('#mobileCommandToggle').click();
-    await page.evaluate(() => {
-        const emit = window.socket.emit.bind(window.socket);
-        window.socket.emit = (event, payload, ...rest) => {
-            if (event !== 'ssh_input' || payload.session_id !== 'safe-one') {
-                return emit(event, payload, ...rest);
-            }
-            window.__terminalInputs.push(payload);
-            const error = {session_id: 'safe-one', error: 'Session not found', success: false};
-            for (let index = 0; index < 12; index++) {
-                window.socket.listeners('ssh_error').forEach(listener => listener(error));
-            }
-            rest.find(value => typeof value === 'function')?.(error);
-            return window.socket;
-        };
-    });
-    const input = page.locator('#mobileInput');
-    await input.fill('keep this prompt');
-    await input.press('Enter');
-    await expect(page.locator('#terminal-safe-one .session-overlay')).toBeVisible();
-    await expect(page.locator('#notificationContainer .notification-warning')
-        .filter({hasText: 'Reconnect to resume your work.'})).toHaveCount(1);
-    await expect(input).toHaveValue('keep this prompt');
-    await page.evaluate(() => TerminalManager.terminals['safe-one'].input('extra input', true));
-    expect(await inputs(page)).toHaveLength(1);
-    console.info('Twelve missing-session errors produced one reconnect notice and preserved the draft.');
+    const id = await restoredComposer(page);
+    try {
+        const dropped = await page.evaluate(id => new Promise(resolve => {
+            window.socket.emit('e2e_workspace_drop', {session_id: id}, resolve);
+        }), id);
+        expect(dropped.ok).toBe(true);
+        const input = page.locator('#mobileInput');
+        await input.fill('keep this prompt');
+        await input.press('Enter');
+        await expect(page.locator(`#terminal-${id} .session-overlay`)).toBeVisible();
+        await expect(input).toHaveValue('keep this prompt');
+        await page.evaluate(id => TerminalManager.terminals[id].input('extra input', true), id);
+        expect((await inputs(page)).map(item => item.data)).toEqual(['keep this prompt\r']);
+        const repeated = await page.evaluate(id => new Promise(resolve => {
+            window.socket.emit('ssh_input', {session_id: id, data: 'duplicate event'}, resolve);
+        }), id);
+        expect(repeated).toMatchObject({success: false, code: 'ssh_session_unavailable'});
+        await expect(page.locator('#notificationContainer .notification-warning')
+            .filter({hasText: 'Reconnect to resume your work.'})).toHaveCount(1);
+        console.info('Authenticated socket rejected stale input twice. One notice displayed and the draft remained.');
+    } finally {
+        await clearRestoredComposer(page);
+    }
+});
+
+test('an interrupted SSH paste frame closes the terminal and keeps the draft', async ({page}) => {
+    const id = await restoredComposer(page, {interruptInput: true});
+    try {
+        await page.evaluate(id => new Promise(resolve => {
+            TerminalManager.terminals[id].write('\u001b[?2004h', resolve);
+        }), id);
+        const input = page.locator('#mobileInput');
+        await input.fill('fixture prompt');
+        await input.press('Enter');
+        await expect(page.locator(`#terminal-${id} .session-overlay`)).toBeVisible();
+        await expect(input).toHaveValue('fixture prompt');
+        await page.evaluate(id => TerminalManager.terminals[id].input('extra input', true), id);
+        expect((await inputs(page)).map(item => item.data)).toEqual(['\u001b[200~fixture prompt\u001b[201~\r']);
+        console.info('One framed prompt saw a partial SSH write. The terminal retired with its draft intact.');
+    } finally {
+        await clearRestoredComposer(page);
+    }
 });
 
 test('switching away and back cancels pending paste instead of retargeting', async ({page}) => {

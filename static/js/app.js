@@ -1856,11 +1856,14 @@
         TerminalManager.handleSocketOutput(data, acknowledge);
     });
 
-    function markSSHSessionDisconnected(sessionId) {
-        window.SSHInput?.cancelSession?.(sessionId);
-        SessionManager.updateSessionStatus(sessionId, 'disconnected');
-        window.sftpFileManager?.handleSessionDisconnected(sessionId);
-    }
+    const sshSessionRecovery = window.SSHSessionRecovery.create({
+        sessions: SessionManager,
+        cancelInput: id => window.SSHInput?.cancelSession(id),
+        disconnectFiles: id => window.sftpFileManager?.handleSessionDisconnected(id),
+        notify: message => showNotification(message, 'warning'),
+        disconnectedMessage: reason => `Session disconnected: ${reason}`,
+        unavailableMessage: () => window.i18n.t('session.disconnectedDescription'),
+    });
 
     socket.on('ssh_error', (data) => {
         const requestId = typeof data?.client_request_id === 'string'
@@ -1889,14 +1892,7 @@
             return;
         }
 
-        if (!requestId && window.SSHErrorUI?.isSessionUnavailable(data)) {
-            if (!SessionManager.getSession(data.session_id)?.connected) return;
-            markSSHSessionDisconnected(data.session_id);
-            const key = 'session.disconnectedDescription';
-            const message = window.i18n?.t?.(key);
-            showNotification(message && message !== key ? message : 'Reconnect to resume your work.', 'warning');
-            return;
-        }
+        if (!requestId && sshSessionRecovery.handleUnavailable(data)) return;
 
         const presentation = window.SSHErrorUI?.describeSSHError?.(
             data,
@@ -1926,11 +1922,7 @@
         if (cancelledSessionIds.delete(data.session_id)) {
             return;
         }
-        const session = SessionManager.getSession(data.session_id);
-        if (session?.connected) {
-            showNotification(`Session disconnected: ${data.reason}`, 'warning');
-        }
-        markSSHSessionDisconnected(data.session_id);
+        sshSessionRecovery.handleDisconnected(data);
     });
 
     socket.on('session_timeout_warning', (data) => {
@@ -2746,30 +2738,14 @@
         const mobileInput = document.getElementById('mobileInput');
         const mobileSendBtn = document.getElementById('mobileSendBtn');
 
-        let mobileSendPending = false;
-        const sendMobileInput = async () => {
-            const active = SessionManager.getActiveSession();
-            if (mobileSendPending || !active) return;
-            const submitted = mobileInput.value;
-            mobileSendPending = true;
-            try {
-                const attachment = window.TerminalComposerAttachment?.send(active, submitted);
-                let sent = attachment ? await attachment : false;
-                if (!attachment && window.socket?.connected === true) {
-                    if (submitted) {
-                        const terminal = SessionManager.getActiveTerminal();
-                        const binding = window.TerminalPasteGuard?.capture(active, terminal);
-                        sent = await window.TerminalPasteGuard?.review(binding, submitted,
-                            value => window.SSHInput?.sendPrompt(active, value, terminal));
-                    } else if (SessionManager.getSession(active)?.connected) {
-                        window.SSHInput?.send(active, '\r');
-                    }
-                }
-                if (sent && mobileInput.value === submitted) mobileInput.value = '';
-            } finally {
-                mobileSendPending = false;
-            }
-        };
+        const sendMobileInput = window.TerminalComposer.createSubmit({
+            input: mobileInput,
+            sessions: SessionManager,
+            connected: () => window.socket?.connected === true,
+            sendAttachment: (id, text) => window.TerminalComposerAttachment?.send(id, text),
+            pasteGuard: window.TerminalPasteGuard,
+            transport: window.SSHInput,
+        });
 
         if (mobileInput) {
             // Review multiline terminal pastes before they can execute commands.

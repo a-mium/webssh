@@ -8,6 +8,8 @@
         ? Math.min(64 * 1024, configuredMaxBytes) : SAFE_FALLBACK_CHUNK_BYTES;
     const ACK_TIMEOUT_MS = 10000;
     const MAX_BACKPRESSURE_RETRIES = 240;
+    const PASTE_START = '\x1b[200~';
+    const PASTE_END = '\x1b[201~';
     const encoder = new TextEncoder();
     const decoder = new TextDecoder('utf-8', {fatal: true});
     const sessionQueues = new Map();
@@ -28,7 +30,7 @@
         return chunks;
     }
 
-    function normalizeNewlines(value) { return String(value).replace(/\r\n|\n/g, '\r'); }
+    function normalizeNewlines(value) { return value.replaceAll('\r\n', '\r').replaceAll('\n', '\r'); }
 
     function notifyFailure(message) {
         root.showNotification?.(message || 'SSH input could not be sent', 'error');
@@ -90,7 +92,7 @@
                 assertConnected(queue);
                 if (payload) {
                     queue.socket.emit('ssh_input', payload, acknowledgement => {
-                        finish(null, acknowledgement || {success: true});
+                        finish(null, acknowledgement);
                     });
                 }
             } catch (error) {
@@ -111,9 +113,9 @@
                         acknowledge_backpressure: true,
                     });
                     assertConnected(queue);
-                    if (result.success !== false) break;
-                    if (result.code !== 'ssh_input_backpressure' || retries >= MAX_BACKPRESSURE_RETRIES) {
-                        throw new Error(result.error || 'SSH input was rejected');
+                    if (result?.success === true) break;
+                    if (result?.code !== 'ssh_input_backpressure' || retries >= MAX_BACKPRESSURE_RETRIES) {
+                        throw new Error(result?.error || 'SSH input was rejected');
                     }
                     retries += 1;
                     await wait(queue, Math.min(5000, Math.max(1, Number(result.retry_after_ms) || 1)));
@@ -178,11 +180,19 @@
     function sendPrompt(sessionId, value, terminal) {
         if (typeof value !== 'string' || !value) return Promise.resolve(false);
         const text = normalizeNewlines(value);
-        // Send Enter outside the paste so the program receives it as a submit key.
+        if (text.includes(PASTE_START) || text.includes(PASTE_END)) {
+            notifyFailure(root.i18n?.t('terminalSafety.promptPasteMarkers'));
+            return Promise.resolve(false);
+        }
         const input = terminal?.modes?.bracketedPasteMode
-            ? '\x1b[200~' + text + '\x1b[201~'
-            : text;
-        return send(sessionId, input + '\r', {requireAcknowledgement: true});
+            ? PASTE_START + text + PASTE_END + '\r'
+            : text + '\r';
+        // A partially delivered paste frame can leave the remote editor in paste mode.
+        if (encoder.encode(input).length > CHUNK_BYTES) {
+            notifyFailure(root.i18n?.t('terminalSafety.promptTooLarge'));
+            return Promise.resolve(false);
+        }
+        return send(sessionId, input, {requireAcknowledgement: true});
     }
 
     root.SSHInput = Object.freeze({
