@@ -49,6 +49,11 @@ or 24 hours under **Settings → Preferences → Sign-in session**. The selected
 applies to the next sign-in and remains an absolute limit from that successful
 authentication.
 
+Existing accounts keep any stored duration, including 30 minutes. Older releases
+could save that value while saving other settings and did not record whether it
+was chosen explicitly. Select **24 hours (default)** to adopt the current default
+without changing other preferences.
+
 Flask's signed session-cookie validation window covers the longest selectable
 duration, while the server-side authentication-session record remains the
 authoritative per-user expiry. A shorter selection therefore cannot be extended

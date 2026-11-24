@@ -57,7 +57,9 @@ def test_returning_to_default_duration_keeps_settings_rollback_compatible(app):
     key = 'authentication_session_duration_minutes'
     with app.app_context():
         path = db.session.get(User, user_id).get_data_dir() / 'settings.json'
-        assert user_settings.save_user_settings(user_id, {key: 30})
+        path.write_text(json.dumps({
+            'schema_version': user_settings.CURRENT_STORAGE_VERSIONS['settings'], key: 30,
+        }), encoding='utf-8')
         assert user_settings.save_user_settings(user_id, {'theme': 'noir'})
         settings = json.loads(path.read_text(encoding='utf-8'))
         print(f'Saved shorter preference after unrelated update: {settings[key]} minutes')

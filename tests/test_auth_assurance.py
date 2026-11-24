@@ -253,11 +253,19 @@ def test_login_and_cookie_window_cover_default_24_hour_session(
     monkeypatch,
 ):
     from itsdangerous import TimestampSigner
+    from app import auth_assurance
     from app.models import AuthenticationSession
 
     _create_user(app, 'long_cookie_window')
     signed_at = 1_800_000_000
     clock = {'now': signed_at}
+
+    class SessionClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime.fromtimestamp(clock['now'], tz)
+
+    monkeypatch.setattr(auth_assurance, 'datetime', SessionClock)
     monkeypatch.setattr(
         TimestampSigner,
         'get_timestamp',
@@ -272,16 +280,65 @@ def test_login_and_cookie_window_cover_default_24_hour_session(
     lifetime = row.expires_at - row.authenticated_at
     print(f'New login lifetime: {lifetime}')
     assert lifetime == timedelta(hours=24)
-    cookie = client.get_cookie(app.config['SESSION_COOKIE_NAME'])
-    for seconds, expected_status in ((23 * 3600, 200), (24 * 3600 + 1, 302)):
-        clock['now'] = signed_at + seconds
-        browser = app.test_client()
-        browser.set_cookie(cookie.key, cookie.value)
-        response = browser.get('/settings')
-        print(f'Original cookie age {seconds}s: HTTP {response.status_code}')
-        assert response.status_code == expected_status
-        if expected_status == 200:
-            assert b'data-authentication-session-duration-minutes="1440"' in response.data
+    with app.app_context():
+        page = client.get('/settings')
+    assert page.status_code == 200
+    assert b'data-authentication-session-duration-minutes="1440"' in page.data
+    token = page.data.split(b'<meta name="csrf-token" content="', 1)[1].split(b'"', 1)[0].decode()
+    monkeypatch.setitem(app.config, 'WTF_CSRF_ENABLED', True)
+    preferences = {'terminal_appearance': {'cursor_blink': False}}
+    post = {'json': preferences, 'headers': {'X-CSRFToken': token}}
+
+    clock['now'] = signed_at + 23 * 3600
+    with app.app_context():
+        saved = client.post('/api/account/preferences', **post)
+    print(f'Protected save with a 23-hour-old token: HTTP {saved.status_code}')
+    assert saved.status_code == 200
+    assert saved.json['settings']['terminal_appearance'] == {'cursor_blink': False}
+
+    with client.session_transaction() as session:
+        session.modified = True
+    clock['now'] = signed_at + 24 * 3600 + 1
+    with app.app_context():
+        expired = client.post('/api/account/preferences', **post)
+    print(f'Protected save after login expiry with a refreshed cookie: HTTP {expired.status_code}')
+    assert expired.status_code == 302
+    assert '/login' in expired.headers['Location']
+
+
+def test_aged_csrf_token_cannot_be_used_in_another_session(app, monkeypatch):
+    from itsdangerous import TimestampSigner
+
+    _create_user(app, 'token_owner')
+    _create_user(app, 'token_non_owner')
+    browser = app.test_client()
+    with app.app_context():
+        assert browser.post('/login', data={
+            'username': 'token_owner', 'password': 'password123',
+        }).status_code == 302
+    with app.app_context():
+        page = browser.get('/settings')
+    assert page.status_code == 200
+    token = page.data.split(b'<meta name="csrf-token" content="', 1)[1].split(b'"', 1)[0].decode()
+    other = app.test_client()
+    with app.app_context():
+        assert other.post('/login', data={
+            'username': 'token_non_owner', 'password': 'password123',
+        }).status_code == 302
+    with app.app_context():
+        assert other.get('/settings').status_code == 200
+    issued = int(datetime.now(timezone.utc).timestamp())
+    monkeypatch.setattr(TimestampSigner, 'get_timestamp', lambda _signer: issued + 2 * 3600)
+    monkeypatch.setitem(app.config, 'WTF_CSRF_ENABLED', True)
+    with app.app_context():
+        response = other.post(
+            '/api/account/preferences',
+            json={'terminal_appearance': {'cursor_blink': False}},
+            headers={'X-CSRFToken': token},
+        )
+    print(f'Protected save with a different login session token: HTTP {response.status_code}')
+    assert response.status_code == 400
+    assert response.json['code'] == 'csrf_expired'
 
 
 def test_corrupt_user_settings_fall_back_to_secure_default(
